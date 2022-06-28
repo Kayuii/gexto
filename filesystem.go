@@ -16,18 +16,59 @@ type fs struct {
 	dev *os.File
 }
 
-func (fs *fs) List() ([]string, error) {
+func (fs *fs) getINodeForPath(path string) (*Inode, error) {
+	parts := strings.Split(path, "/")
+
+	inode := fs.getInode(int64(ROOT_INO))
+	for _, part := range parts[:len(parts)-1] {
+		println("part")
+		println(part)
+		if len(part) == 0 {
+			continue
+		}
+
+		dirContents := inode.ReadDirectory()
+		found := false
+		println("Dir Contents")
+
+		for i := 0; i < len(dirContents); i++ {
+			println(string(dirContents[i].Name), part, dirContents[i].Flags, dirContents[i].Inode)
+			if string(dirContents[i].Name) == part {
+				found = true
+				inode = fs.getInode(int64(dirContents[i].Inode))
+				break
+			}
+		}
+
+		if !found {
+			return nil, fmt.Errorf("No such file or directory")
+		}
+
+	}
+
+	return inode, nil
+}
+
+func (fs *fs) List(path string, level int) ([]string, error) {
 	inodeNum := int64(ROOT_INO)
 	inode := fs.getInode(inodeNum)
 
-	files := fs.walk("", inode, []string{})
+	if path != "" {
+		log.Println("Path not blank")
+		inode, _ = fs.getINodeForPath(path)
+	}
+	log.Println("List Running")
+	files := fs.walk("", inode, []string{}, level, 0)
 
 	return files, nil
 }
 
 var DIRECTORY_MODE = uint16(16877)
 
-func (fs *fs) walk(path string, inode *Inode, files []string) []string {
+func (fs *fs) walk(path string, inode *Inode, files []string, level int, curLevel int) []string {
+	if curLevel >= level {
+		return files
+	}
 	if path == "" {
 		path = "/"
 	}
@@ -49,8 +90,8 @@ func (fs *fs) walk(path string, inode *Inode, files []string) []string {
 		if i.UsesDirectoryHashTree() {
 			continue
 		}
-
-		files = fs.walk(filepath.Join(path, content.Name), i, files)
+		curLevel++
+		files = fs.walk(filepath.Join(path, content.Name), i, files, level, curLevel)
 	}
 
 	return files

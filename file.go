@@ -1,15 +1,15 @@
 package gexto
 
 import (
-	"io"
 	"fmt"
+	"io"
 	"log"
 )
 
 type extFile struct {
-	fs *fs
+	fs    *fs
 	inode *Inode
-	pos int64
+	pos   int64
 }
 
 func (f *File) Read(p []byte) (n int, err error) {
@@ -20,7 +20,7 @@ func (f *File) Read(p []byte) (n int, err error) {
 	offset := int64(0)
 
 	//log.Println("Read", len, f.pos, f.inode.GetSize())
-	if len + f.pos > int64(f.inode.GetSize()) {
+	if len+f.pos > int64(f.inode.GetSize()) {
 		len = int64(f.inode.GetSize()) - f.pos
 	}
 
@@ -35,9 +35,9 @@ func (f *File) Read(p []byte) (n int, err error) {
 			return int(offset), io.ErrUnexpectedEOF
 		}
 
-		f.fs.dev.Seek(blockPtr * f.fs.sb.GetBlockSize() + blockPos, 0)
+		f.fs.dev.Seek(blockPtr*f.fs.sb.GetBlockSize()+blockPos, 0)
 
-		blockReadLen := contiguousBlocks * f.fs.sb.GetBlockSize() - blockPos
+		blockReadLen := contiguousBlocks*f.fs.sb.GetBlockSize() - blockPos
 		if blockReadLen > len {
 			blockReadLen = len
 		}
@@ -48,7 +48,8 @@ func (f *File) Read(p []byte) (n int, err error) {
 		}
 		offset += int64(n)
 		blockPos = 0
-		blockNum++
+		// blockNum++
+		blockNum += contiguousBlocks
 		len -= int64(n)
 	}
 	f.pos += offset
@@ -75,7 +76,7 @@ func (f *File) Write(p []byte) (n int, err error) {
 		}
 
 		//log.Println(blockNum, blockPos, blockPtr, contiguousBlocks, len(p))
-		writable := contiguousBlocks * f.fs.sb.GetBlockSize() - blockPos
+		writable := contiguousBlocks*f.fs.sb.GetBlockSize() - blockPos
 
 		if writable == 0 {
 			log.Fatalf("panic")
@@ -87,7 +88,7 @@ func (f *File) Write(p []byte) (n int, err error) {
 
 		f.pos += writable
 		//log.Println("seek", blockPtr * f.fs.sb.GetBlockSize() + blockPos, "write", writable)
-		f.fs.dev.Seek(blockPtr * f.fs.sb.GetBlockSize() + blockPos, 0)
+		f.fs.dev.Seek(blockPtr*f.fs.sb.GetBlockSize()+blockPos, 0)
 		f.fs.dev.Write(p[:writable])
 		p = p[writable:]
 	}
